@@ -11,55 +11,81 @@ def starting_questions():
 
 starting_questions()
 """
+from datetime import datetime
 from robocorp.tasks import task
 from robocorp import browser
 
+def valitse_paivamaara_kalenterista(page, haluttu_pvm: str):
+    """
+    Muuntaa suomalaisen päivän (esim. 26.4.2026) Trivagon muotoon (2026-04-26) 
+    ja kelaa kalenteria eteenpäin, kunnes päivä löytyy ja klikkaa sitä.
+    """
+    # 1. Muutetaan päivämäärän muoto
+    pvm_olio = datetime.strptime(haluttu_pvm, "%d.%m.%Y")
+    trivago_pvm = pvm_olio.strftime("%Y-%m-%d")
+    print(f"Etsitään kalenterista päivää: {trivago_pvm}")
+    
+    # Määritellään elementit, joita etsimme
+    paiva_elementti = page.locator(f"time[datetime='{trivago_pvm}']")
+    # Etsitään "Seuraava kuukausi" nuoli. Trivago käyttää yleensä tätä testid:tä
+    seuraava_kuukausi_nuoli = page.locator("[data-testid='calendar-button-next']")
+    
+    # 2. Varmistetaan, että kalenteri on ladannut jotain ruudulle
+    page.wait_for_selector("time", timeout=5000)
+    
+    # 3. Silmukka, joka etsii päivää (kokeilee maksimissaan 12 kuukautta eteenpäin)
+    for yritys in range(12):
+        if paiva_elementti.is_visible():
+            paiva_elementti.click()
+            print(f"-> Päivä {haluttu_pvm} klikattu onnistuneesti!")
+            return # Lopetetaan funktio tähän, koska päivä löytyi
+        else:
+            print("Päivää ei näy ruudulla, painetaan '>' nuolta...")
+            seuraava_kuukausi_nuoli.click()
+            # Odotetaan puoli sekuntia, että kalenterin liukuanimaatio ehtii mennä ohi
+            page.wait_for_timeout(500)
+            
+    # Jos silmukka loppuu eikä päivää löytynyt
+    raise Exception(f"Päivämäärää {haluttu_pvm} ei löydetty edes selaamalla!")
+
 @task
-def testaa_luotettavaa_hakua():
-    # Slowmo (1000ms) antaa sinun nähdä mitä tapahtuu
+def trivago_alykas_kalenteri():
     browser.configure(browser_engine="chromium", headless=False, slowmo=1000)
     page = browser.page()
-    
     page.goto("https://www.trivago.fi/")
     
-    print("Odotetaan evästeitä...")
+    print("Ohitetaan evästeet...")
     try:
-        page.locator("button:has-text('Hyväksy kaikki')").click(timeout=4000)
+        page.get_by_text("Hyväksy kaikki", exact=False).first.click(timeout=5000)
     except Exception:
-        print("Ei evästeikkunaa.")
+        pass
 
-    # 1. Paina "Kohde" / "Minne matka" (Käytetään lähdekoodin data-testid:tä)
-    print("Vaihe 1: Klikataan kohde-kenttää")
+    print("Kirjoitetaan kohde...")
     page.locator("[data-testid='auto-complete-wrapper']").click()
-    
-    # Syötetään kohde heti klikkauksen jälkeen ja painetaan Enter (valitsee ensimmäisen vaihtoehdon)
-    # Lähdekoodissa kentän id on "input-auto-complete"
-    kohde_kentta = page.locator("#input-auto-complete")
-    kohde_kentta.fill("Pariisi")
+    page.locator("#input-auto-complete").fill("Pariisi")
+    page.wait_for_timeout(1500)
     page.keyboard.press("Enter")
-
-    # 2. Paina "Päivämäärät" (Käytetään lähdekoodin data-testid:tä)
-    print("Vaihe 2: Klikataan 'Päivämäärät'")
-    page.locator("[data-testid='search-form-calendar']").click()
     
-    # 3. Valitaan päivät (Esimerkkipäivät, jotka sinun pitää muuttaa tulevaisuuteen)
-    print("Vaihe 3: Valitaan kalenterista päivät")
-    page.locator("time[datetime='2024-06-15']").click() # Tulopäivä (MUUTA TÄMÄ)
-    page.locator("time[datetime='2024-06-20']").click() # Lähtöpäivä (MUUTA TÄMÄ)
+    # Varmistetaan, että kalenteri on varmasti auki ennen kuin yritämme etsiä päiviä
+    try:
+        # Jos kalenteri ei auennut automaattisesti, avataan se
+        if not page.locator("time").first.is_visible():
+            page.locator("[data-testid='search-form-calendar']").click()
+    except Exception:
+        pass
 
-    # 4. Paina "Asiakkaat ja huoneet"
-    print("Vaihe 4: Klikataan 'Asiakkaat ja huoneet'")
-    page.locator("[data-testid='search-form-guest-selector']").click()
+    # TESTATAAN ÄLYKÄSTÄ KALENTERIA
+    # Laitetaan tahallaan pitkälle tulevaisuuteen oleva matka, jotta näet kuinka robotti kelaa kalenteria!
+    tulo = "15.08.2026"
+    lahto = "22.08.2026"
     
-    # 5. Paina "Käytä" nappia (vahvistetaan oletus 2 aik. 1 huone)
-    print("Vaihe 5: Painetaan 'Käytä'")
-    page.locator("button:has-text('Käytä')").click()
-    
-    # 6. Paina "Hae" (Käytetään lähdekoodin data-testid:tä)
-    print("Vaihe 6: Painetaan 'Hae'")
-    page.locator("[data-testid='search-button-with-loader']").click()
+    valitse_paivamaara_kalenterista(page, tulo)
+    # Pieni tauko klikkausten välissä matkii ihmistä
+    page.wait_for_timeout(500)
+    valitse_paivamaara_kalenterista(page, lahto)
 
-    # Odotetaan 10 sekuntia, jotta näet tulossivun
+    # Odotetaan lopuksi 10s jotta näet tuloksen
+    print("Valmista! Odotetaan 10s...")
     page.wait_for_timeout(10000)
-    
-testaa_luotettavaa_hakua()
+
+trivago_alykas_kalenteri()
