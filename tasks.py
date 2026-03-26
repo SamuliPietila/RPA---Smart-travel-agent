@@ -72,3 +72,5 @@ def run_travel_agent_step_3():
     target_check_out = "2024-05-20"
     
     search_trivago_hotels(target_destination, target_check_in, target_check_out)
+
+
