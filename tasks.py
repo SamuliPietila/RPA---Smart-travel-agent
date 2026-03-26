@@ -4,72 +4,113 @@ from robocorp import browser
 from playwright.sync_api import Page
 
 def muotoile_pvm(suomi_pvm: str) -> str:
-    """Muuttaa 15.08.2026 -> 2026-08-15 muotoon, jota kalenteri käyttää."""
+    """Muuttaa esim. 26.4.2026 -> 2026-04-26 robotille sopivaksi."""
     return datetime.strptime(suomi_pvm, "%d.%m.%Y").strftime("%Y-%m-%d")
 
-def etsi_ja_klikkaa_paiva(page: Page, haluttu_pvm: str):
-    """
-    Tämä on se ydinlogiikka: Etsii päivää. Jos ei näy, painaa nuolta.
-    """
-    trivago_muoto = muotoile_pvm(haluttu_pvm)
-    print(f"Etsitään päivää {haluttu_pvm} (koodina {trivago_muoto})...")
+def etsi_ja_klikkaa_paiva(page: Page, kohde_pvm: str):
+    """Kelaa kalenteria nuolella, kunnes oikea päivä löytyy ja klikkaa."""
+    trivago_pvm = muotoile_pvm(kohde_pvm)
+    print(f"Etsitään kalenterista päivää: {kohde_pvm}")
     
-    # Määritellään elementit
-    paiva = page.locator(f"time[datetime='{trivago_muoto}']")
+    paiva_elementti = page.locator(f"time[datetime='{trivago_pvm}']")
     seuraava_nuoli = page.locator("button[data-testid='calendar-button-next']")
     
-    # Yritetään enintään 12 kertaa (vuosi eteenpäin)
-    for yritys in range(12):
-        # 1. Tarkistetaan onko päivä näkyvissä kalenterissa
-        if paiva.is_visible():
-            print(f"--> Päivä {haluttu_pvm} näkyy ruudulla! Klikataan...")
-            # force=True varmistaa, että klikkaus menee perille
-            paiva.click(force=True) 
-            page.wait_for_timeout(1000) # Pieni tauko klikkauksen jälkeen
-            return # Lopetetaan funktio, koska päivä löytyi
-            
-        # 2. Jos päivä ei näy, painetaan nuolta eteenpäin
-        else:
-            print("--> Päivää ei näy. Painetaan '>' nuolta eteenpäin...")
+    for _ in range(12):
+        if paiva_elementti.is_visible():
+            paiva_elementti.click(force=True)
+            print(f"-> Päivä {kohde_pvm} klikattu!")
+            page.wait_for_timeout(500)
+            return
+        
+        if seuraava_nuoli.is_visible():
             seuraava_nuoli.click(force=True)
-            # Odotetaan sekunti, jotta kalenterin animaatio ehtii vaihtaa kuukautta
-            page.wait_for_timeout(1000)
-            
-    print(f"VIRHE: Päivää {haluttu_pvm} ei löytynyt 12 yrityksestä huolimatta.")
+            page.wait_for_timeout(800)
+        else:
+            break
+    print(f"-> VIRHE: Päivämäärää {kohde_pvm} ei löytynyt!")
+
+def aseta_henkilomaara_aktivoimalla(page: Page, aikuiset: int):
+    """Tuplaklikkaa aikuisten tekstikentän aktiiviseksi ja kirjoittaa uuden luvun."""
+    print(f"Asetetaan henkilömääräksi {aikuiset} aikuista...")
+    try:
+        page.locator("[data-testid='search-form-guest-selector']").click(force=True)
+        page.wait_for_timeout(1000)
+    except Exception:
+        pass # Valikko saattoi olla jo auki
+
+    try:
+        aikuiset_rivi = page.locator("div").filter(has_text="Aikuiset").last
+        input_kentta = aikuiset_rivi.locator("input")
+        
+        print("-> Tuplaklikataan kenttä aktiiviseksi...")
+        input_kentta.click(click_count=2, force=True)
+        page.wait_for_timeout(500)
+        
+        print(f"-> Näppäillään luku {aikuiset}...")
+        page.keyboard.type(str(aikuiset), delay=200)
+        page.wait_for_timeout(500)
+        
+    except Exception as e:
+        print(f"-> Kentän aktivointi epäonnistui: {e}")
+
+    print("-> Vahvistetaan painamalla 'Käytä'...")
+    page.get_by_role("button", name="Käytä").first.click(force=True)
 
 
 @task
-def testaa_vain_kalenteria():
-    # Hidastetaan toimintaa (1000ms viive), jotta ehdit nähdä kalenterin kelauksen
-    browser.configure(browser_engine="chromium", headless=False, slowmo=1000)
+def trivago_taydellinen_matkatoimisto():
+    """Tästä robotti lähtee käyntiin!"""
+    browser.configure(browser_engine="chromium", headless=False, slowmo=500)
     page = browser.page()
     page.goto("https://www.trivago.fi/")
     
-    # 1. Kuitataan evästeet alta pois (pakotetusti)
-    print("Kuitataan evästeet...")
+    # 1. EVÄSTEET
+    print("Vaihe 1: Evästeet")
     try:
         page.locator("button:has-text('Hyväksy kaikki')").first.click(timeout=4000, force=True)
-    except:
+        page.wait_for_timeout(1000)
+    except Exception:
         pass
 
-    # 2. Avataan kalenteri painamalla "Päivämäärät" -nappia
-    print("Avataan kalenteri...")
-    page.get_by_text("Päivämäärät").click(force=True)
-    
-    # Odotetaan varmuuden vuoksi hetki, että kalenteri "pomppaa" esiin
-    page.wait_for_timeout(1000)
+    # 2. KOHDE
+    print("Vaihe 2: Matkakohde")
+    try:
+        page.locator("[data-testid='auto-complete-wrapper']").click(force=True)
+        kohde_input = page.locator("#input-auto-complete")
+        kohde_input.wait_for(state="visible", timeout=3000)
+        
+        # Kirjoitetaan viiveellä ja valitaan listasta
+        page.keyboard.type("Pariisi", delay=150)
+        ehdotus = page.locator("[data-testid='search-suggestion']").first
+        ehdotus.wait_for(state="visible", timeout=5000)
+        ehdotus.click(force=True)
+        print("-> Kohde valittu.")
+    except Exception as e:
+        print(f"-> Kohteen valinta epäonnistui: {e}")
 
-    # 3. Testataan logiikkaa elokuun päivillä!
-    tulo = "15.08.2026"
-    lahto = "22.08.2026"
-    
-    print("--- Aloitetaan tulopäivän etsintä ---")
-    etsi_ja_klikkaa_paiva(page, tulo)
-    
-    print("--- Aloitetaan lähtöpäivän etsintä ---")
-    etsi_ja_klikkaa_paiva(page, lahto)
-    
-    print("Kalenteritesti suoritettu! Odotetaan 5 sekuntia...")
-    page.wait_for_timeout(5000)
+    # 3. PÄIVÄMÄÄRÄT
+    print("Vaihe 3: Kalenteri")
+    try:
+        if not page.locator("time").first.is_visible(timeout=2000):
+            page.locator("[data-testid='search-form-calendar']").click(force=True)
+    except Exception:
+        pass
 
-testaa_vain_kalenteria()
+    etsi_ja_klikkaa_paiva(page, "26.4.2026")
+    etsi_ja_klikkaa_paiva(page, "30.4.2026")
+
+    # 4. HENKILÖMÄÄRÄ
+    print("Vaihe 4: Henkilömäärä")
+    page.type("input[data-testid='adults-amount']", "4", delay=200)
+
+    # 5. HAE
+    print("Vaihe 5: Hae")
+    try:
+        page.locator("[data-testid='search-button-with-loader']").click(force=True)
+    except Exception:
+        page.locator("button:has-text('Hae')").first.click(force=True)
+        
+    print("Kaikki valmista! Odotetaan 10s...")
+    page.wait_for_timeout(10000)
+
+trivago_taydellinen_matkatoimisto()
