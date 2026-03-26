@@ -13,101 +13,53 @@ starting_questions()
 """
 from robocorp.tasks import task
 from robocorp import browser
-from playwright.sync_api import Page
-
-def accept_cookies(page: Page):
-    """Yrittää ohittaa evästeet usealla eri tunnistustavalla."""
-    print("Yritetään hyväksyä evästeet...")
-    try:
-        # Etsitään evästenappia tekstin perusteella (huomioi sekä suomi että englanti)
-        cookie_btn = page.locator("button:has-text('Hyväksy kaikki'), button:has-text('Accept all')").first
-        if cookie_btn.is_visible(timeout=5000):
-            cookie_btn.click()
-            print("Evästeet hyväksytty.")
-    except Exception as e:
-        print("Evästeikkunaa ei löytynyt tai se katosi. Jatketaan...")
-
-def search_trivago_flow(destination: str, check_in: str, check_out: str, max_price: str):
-    # Avataan selain hitaammalla tahdilla (slowmo), jotta se matkii ihmistä
-    browser.configure(browser_engine="chromium", headless=False, slowmo=100)
-    page = browser.page()
-    
-    # 1. Avaa sivu
-    page.goto("https://www.trivago.fi/") # Käytetään .fi jos halutaan suomeksi
-    page.wait_for_load_state("networkidle")
-    accept_cookies(page)
-    
-    # 2 & 3. Kirjoita kohde ja valitse alasvetovalikosta
-    print(f"Etsitään kohdetta: {destination}")
-    search_input = page.locator("input[type='search']")
-    search_input.click()
-    search_input.fill(destination)
-    # Odotetaan alasvetovalikon ilmestymistä ja valitaan ensimmäinen
-    page.locator("[data-testid='search-suggestion']").first.click()
-    
-    # 4. Aseta tulo- ja lähtöpäivä kalenterista
-    print(f"Valitaan päivät: {check_in} - {check_out}")
-    # Trivagossa kohteen valinta avaa yleensä kalenterin automaattisesti.
-    # Valitaan suoraan datetime-attribuutin avulla.
-    page.locator(f"time[datetime='{check_in}']").click()
-    page.locator(f"time[datetime='{check_out}']").click()
-    
-    # 5. Aseta henkilömäärä ja huoneet
-    print("Vahvistetaan henkilömäärä...")
-    # Kun päivät on valittu, aukeaa yleensä "Vieraat ja huoneet" -valikko.
-    # Painetaan "Käytä" (Apply) nappia vahvistaaksemme oletuksen (2 aikuista, 1 huone).
-    apply_guests_btn = page.locator("button:has-text('Käytä'), button:has-text('Apply')").first
-    if apply_guests_btn.is_visible():
-        apply_guests_btn.click()
-    
-    # 6. Paina "Hae"
-    print("Aloitetaan haku...")
-    search_btn = page.locator("button:has-text('Hae'), button:has-text('Search')").first
-    search_btn.click()
-    
-    # Odotetaan, että hakutulossivu latautuu
-    page.wait_for_selector("[data-testid='accommodation-list']", timeout=15000)
-    
-    # --- SUODATTIMET ---
-    print("Asetetaan suodattimet...")
-    
-    # 7 & 8. Arvostelu
-    page.locator("button:has-text('Arvostelu'), button:has-text('Guest rating')").click()
-    page.locator("label:has-text('Erittäin hyvä'), label:has-text('8.0')").first.click()
-    
-    # 9. Majoituspaikantyyppi: Hotellit
-    page.locator("button:has-text('Majoituspaikan tyyppi'), button:has-text('Property type')").click()
-    page.locator("label:has-text('Hotelli'), label:has-text('Hotel')").first.click()
-    
-    # 11. Lajittelu: Hinta (matalimmasta korkeimpaan)
-    page.locator("button:has-text('Lajitteluperuste'), button:has-text('Sort by')").click()
-    page.locator("label:has-text('Hinta ja suositukset'), label:has-text('Price only')").click() # Huom! Trivagon tekstit vaihtelevat
-    
-    # 12, 13, 14. Hinta (Koko majoitus ja Maksimihinta)
-    print(f"Asetetaan maksimihinta: {max_price}")
-    page.locator("button:has-text('Hinta'), button:has-text('Price')").click()
-    # Hinnan syöttäminen voi olla liukusäädin (slider) tai tekstikenttä. 
-    # Jos se on tekstikenttä, tämä toimii:
-    max_price_input = page.locator("input[data-testid='price-filter-max-input']")
-    if max_price_input.is_visible():
-        max_price_input.fill(max_price)
-    # Vahvistetaan hinta
-    page.locator("button:has-text('Käytä'), button:has-text('Apply')").first.click()
-    
-    # 15. Kerää majoitustiedot (Odota ensin että lista päivittyy)
-    page.wait_for_timeout(3000) # Lyhyt tauko, jotta sivu ehtii ladata filtteröidyt tulokset
-    print("Ollaan valmiita keräämään dataa!")
-    
-    # Pidetään selain auki testausta varten
-    page.wait_for_timeout(10000)
 
 @task
-def run_trivago_robot():
-    """Tätä funktiota kutsutaan kun robotti käynnistetään."""
-    kohde = "Pariisi"
-    # HUOM: Varmista että päivämäärät ovat tulevaisuudessa ja oikeassa formaatissa (YYYY-MM-DD)
-    tulo = "2024-06-10" 
-    lahto = "2024-06-15"
-    maksimibudjetti = "1000"
+def testaa_luotettavaa_hakua():
+    # Slowmo (1000ms) antaa sinun nähdä mitä tapahtuu
+    browser.configure(browser_engine="chromium", headless=False, slowmo=1000)
+    page = browser.page()
     
-    search_trivago_flow(kohde, tulo, lahto, maksimibudjetti)
+    page.goto("https://www.trivago.fi/")
+    
+    print("Odotetaan evästeitä...")
+    try:
+        page.locator("button:has-text('Hyväksy kaikki')").click(timeout=4000)
+    except Exception:
+        print("Ei evästeikkunaa.")
+
+    # 1. Paina "Kohde" / "Minne matka" (Käytetään lähdekoodin data-testid:tä)
+    print("Vaihe 1: Klikataan kohde-kenttää")
+    page.locator("[data-testid='auto-complete-wrapper']").click()
+    
+    # Syötetään kohde heti klikkauksen jälkeen ja painetaan Enter (valitsee ensimmäisen vaihtoehdon)
+    # Lähdekoodissa kentän id on "input-auto-complete"
+    kohde_kentta = page.locator("#input-auto-complete")
+    kohde_kentta.fill("Pariisi")
+    page.keyboard.press("Enter")
+
+    # 2. Paina "Päivämäärät" (Käytetään lähdekoodin data-testid:tä)
+    print("Vaihe 2: Klikataan 'Päivämäärät'")
+    page.locator("[data-testid='search-form-calendar']").click()
+    
+    # 3. Valitaan päivät (Esimerkkipäivät, jotka sinun pitää muuttaa tulevaisuuteen)
+    print("Vaihe 3: Valitaan kalenterista päivät")
+    page.locator("time[datetime='2024-06-15']").click() # Tulopäivä (MUUTA TÄMÄ)
+    page.locator("time[datetime='2024-06-20']").click() # Lähtöpäivä (MUUTA TÄMÄ)
+
+    # 4. Paina "Asiakkaat ja huoneet"
+    print("Vaihe 4: Klikataan 'Asiakkaat ja huoneet'")
+    page.locator("[data-testid='search-form-guest-selector']").click()
+    
+    # 5. Paina "Käytä" nappia (vahvistetaan oletus 2 aik. 1 huone)
+    print("Vaihe 5: Painetaan 'Käytä'")
+    page.locator("button:has-text('Käytä')").click()
+    
+    # 6. Paina "Hae" (Käytetään lähdekoodin data-testid:tä)
+    print("Vaihe 6: Painetaan 'Hae'")
+    page.locator("[data-testid='search-button-with-loader']").click()
+
+    # Odotetaan 10 sekuntia, jotta näet tulossivun
+    page.wait_for_timeout(10000)
+    
+testaa_luotettavaa_hakua()
