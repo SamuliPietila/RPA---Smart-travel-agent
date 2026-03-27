@@ -10,7 +10,7 @@ def starting_questions():
     people = int(input("Enter the number of people: "))
     departure_date = str(input("Enter the departure date (DD:MM): "))
     return_date = str(input("Enter the return date (DD:MM): "))
-    hotel_rating = float(input("Enter the minimum desired hotel rating (1.0-10.0): "))
+    hotel_rating = float(input("Enter the minimum desired hotel rating (7.0-10.0): "))
     return Departure_location, target_location, budget, people, departure_date, return_date, hotel_rating
 
 starting_questions()
@@ -113,3 +113,45 @@ def evästeet():
         page.locator("button:has-text('Hyväksy kaikki')").first.click(timeout=4000, force=True)
     except:
         pass
+
+def filters():
+    page = browser.page()
+    print("Asetetaan suodattimet...")
+    page.goto("https://www.trivago.fi/en-US/srl/hotels-paris-france?search=200-22235;dr-20260522-20260529;drs-40;rc-1-4")
+    page.wait_for_timeout(2000)
+
+    print("Painetaan filters kenttä auki")
+    page.click("span[class='oTKan8 jrrkOG']")
+    page.wait_for_timeout(1000)
+
+    print("Asetetaan property type = hotelli")
+    page.click("input[data-testid='property-type-checkbox-312/1-input']")
+    page.wait_for_timeout(1000)
+
+    if hotel_rating >= 8.0:
+        print("Asetetaan rating suodatin 8.5+")
+        page.click("input[data-testid='radio-button-106/1324']")
+    elif hotel_rating >= 7.5:
+        print("Asetetaan rating suodatin 8.0+")
+        page.click("input[data-testid='radio-button-106/1527']")
+
+    elif hotel_rating > 7.0:
+        print("Asetetaan rating suodatin 7.5+")
+        page.click("input[data-testid='radio-button-106/2007']")
+
+    elif hotel_rating == 7.0:
+        print("Asetetaan rating suodatin 7.0+")
+        page.click("input[data-testid='radio-button-106/2555']")
+
+    else:
+        print("Rating ei määritelty.")
+        page.click("input[data-testid='radio-button-null']")
+
+    page.wait_for_timeout(1000)
+
+    print("Klikataan apply filters")
+    page.click("button[data-testid='filters-popover-apply-button']")
+
+    page.wait_for_timeout(5000)
+
+    
