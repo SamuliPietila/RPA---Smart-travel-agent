@@ -72,4 +72,5 @@ def testaa_vain_kalenteria():
     print("Kalenteritesti suoritettu! Odotetaan 5 sekuntia...")
     page.wait_for_timeout(5000)
 
+
 testaa_vain_kalenteria()
