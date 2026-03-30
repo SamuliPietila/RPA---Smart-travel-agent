@@ -115,13 +115,19 @@ def evästeet():
         pass
 
 def filters():
+
+    budget = 1000
+    hotel_rating = 8.0
+
     page = browser.page()
     print("Asetetaan suodattimet...")
-    page.goto("https://www.trivago.fi/en-US/srl/hotels-paris-france?search=200-22235;dr-20260522-20260529;drs-40;rc-1-4")
+    #page.goto("https://www.trivago.fi/en-US/srl/hotels-paris-france?search=200-22235;dr-20260522-20260529;drs-40;rc-1-4")
+    #evästeet()
+    
     page.wait_for_timeout(2000)
 
     print("Painetaan filters kenttä auki")
-    page.click("span[class='oTKan8 jrrkOG']")
+    page.click("button[name='more_filters']")
     page.wait_for_timeout(1000)
 
     print("Asetetaan property type = hotelli")
@@ -152,6 +158,26 @@ def filters():
     print("Klikataan apply filters")
     page.click("button[data-testid='filters-popover-apply-button']")
 
+    page.wait_for_timeout(5000)
+
+    print("Järjestetään hinnan mukaan")
+    page.click("button[name='sorting_selector']")
+    page.wait_for_timeout(500)
+
+    page.click("input[data-testid='sorting-index-4']")
+    page.click("button[data-testid='filters-popover-apply-button']")
+    page.wait_for_timeout(5000)
+
+    print("Klikataan budjetti suodatin")
+    page.click("button[name='budget']")
+    page.wait_for_timeout(500)
+
+    print("Valitaan haluttu budjetti")
+    page.click("input[data-testid='radio-button-TOTAL_STAY']")
+
+    page.type("input[data-testid='price-filter-value-max']", str(budget), delay=200)
+
+    page.click("button[data-testid='filters-popover-apply-button']")
     page.wait_for_timeout(5000)
 
     

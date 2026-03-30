@@ -1,58 +1,9 @@
 from datetime import datetime
+from robocorp.tasks import task
 from robocorp import browser
 from playwright.sync_api import Page
 
-
-
-def evästeet():
-    page = browser.page()
-    
-    print("Kuitataan evästeet...")
-    try:
-        page.locator("button:has-text('Hyväksy kaikki')").first.click(timeout=4000, force=True)
-    except:
-        pass
-
-
-
-def lahtopaikka():
-    browser.configure(browser_engine="chromium", headless=False, slowmo=1000)
-    page= browser.page()
-    page.goto("https://www.skyscanner.fi/")
-
-    evästeet()
-
-    print("Asetetaan lähtöpaikka...")
-    page.type("input[id='originInput-input']", "Helsinki", delay=200)
-    
-    page.wait_for_timeout(1000)
-
-    page.type("input[id='destinationInput-input']", "PPariisi", delay=200)
-    page.wait_for_timeout(500)
-
-    page.keyboard.press("Enter")
-    
-
-    page.wait_for_timeout(1000)
-
-    page.click("input[aria-label='Lisää hotelli']")
-    page.wait_for_timeout(500)
-
-    
-def aseta_henkilömäärä():
-    page = browser.page()
-
-    page.click("button[data-testid='traveller-button']")
-    page.wait_for_timeout(500)
-    page.type("input[id='adult-nudger']", "4", delay=200)
-    page.wait_for_timeout(500)
-    page.click("button[data-testid='traveller-selector-apply-button']")
-    page.wait_for_timeout(1000)
-
-    page.click("button[data-testid='desktop-cta']")
-    page.wait_for_timeout(5000)
-
-
+# Suomalaisten kuukausien nimet, joita Skyscanner käyttää
 KUUKAUDET = ["tammikuuta", "helmikuuta", "maaliskuuta", "huhtikuuta", "toukokuuta", "kesäkuuta", "heinäkuuta", "elokuuta", "syyskuuta", "lokakuuta", "marraskuuta", "joulukuuta"]
 
 def muotoile_skyscanner_pvm(suomi_pvm: str) -> str:
@@ -97,13 +48,21 @@ def etsi_ja_klikkaa_paiva_skyscanner(page: Page, haluttu_pvm: str):
     print(f"VIRHE: Päivää {haluttu_pvm} ei löytynyt 12 yrityksestä huolimatta.")
 
 
+@task
 def testaa_skyscanner_kalenteria():
     # Hidastetaan toimintaa (1000ms viive)
-    #browser.configure(browser_engine="chromium", headless=False, slowmo=1000)
+    browser.configure(browser_engine="chromium", headless=False, slowmo=1000)
     
     page = browser.page()
-    #page.goto("https://www.skyscanner.fi/")
+    page.goto("https://www.skyscanner.fi/")
     
+    print("Kuitataan evästeet...")
+    
+    print("Kuitataan evästeet...")
+    try:
+        page.locator("button:has-text('Hyväksy kaikki')").first.click(timeout=4000, force=True)
+    except:
+        pass
 
     print("Avataan kalenteri...")
     try:
