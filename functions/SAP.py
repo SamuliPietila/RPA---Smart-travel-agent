@@ -1,6 +1,8 @@
 from datetime import datetime
 from robocorp import browser
 from playwright.sync_api import Page
+from RPA.Excel.Files import Files
+from functions import EMV
 
 """
 def starting_questions():
@@ -116,7 +118,7 @@ def evästeet():
 
 def filters():
 
-    budget = 1000
+    budget = 2000
     hotel_rating = 8.0
 
     page = browser.page()
@@ -180,4 +182,124 @@ def filters():
     page.click("button[data-testid='filters-popover-apply-button']")
     page.wait_for_timeout(5000)
 
+
+
+def tallenna_hotellit_olemassaolevaan_exceliin(keratty_hotellidata):
+    if not keratty_hotellidata:
+        print("Ei hotellidataa tallennettavaksi.")
+        return
+        
+    excel = Files()
+    tiedoston_nimi = "skyscanner_tulokset.xlsx"
     
+    try:
+        # Avataan se VANHA tiedosto, jonka Skyscanner-koodi loi
+        excel.open_workbook(tiedoston_nimi)
+        
+        # TARKISTUS: Onko "Hotellit" jo olemassa vanhasta testistä?
+        if excel.worksheet_exists("Hotellit"):
+            print("Vanha Hotellit-välilehti löytyi. Poistetaan vanhat tiedot...")
+            excel.remove_worksheet("Hotellit")
+        
+        # Luodaan uusi, puhdas välilehti (nyt se onnistuu aina)
+        excel.create_worksheet("Hotellit")
+        
+        # Varmistetaan, että ollaan varmasti uudella välilehdellä
+        excel.set_active_worksheet("Hotellit")
+        
+        # Lisätään hotellidata uuteen välilehteen
+        excel.append_rows_to_worksheet(keratty_hotellidata, header=True)
+        
+        # Tallennetaan muutokset
+        excel.save_workbook()
+        print(f"Hotellit päivitetty onnistuneesti tiedostoon {tiedoston_nimi}!")
+        
+    except Exception as e:
+        print(f"Virhe Excelin tallennuksessa: {e}")  
+
+    
+def hae_trivago_hotellit():
+    print("Odotetaan Trivagon tuloksien latautumista...")
+    page = browser.page()
+    
+    # Trivagossa hakutuloskortit ovat usein tällä testid:llä tai <article>-tageja.
+    # Muokkaa tätä tarvittaessa DevToolsin perusteella!
+    page.wait_for_selector("[data-testid='accommodation-list-element']", timeout=15000)
+    kortit = page.locator("[data-testid='accommodation-list-element']").all()
+    
+    keratty_hotellidata = []
+    maara = min(3, len(kortit))
+    
+    print(f"Kerätään tiedot {maara} ensimmäisestä hotellista...")
+    
+    for i in range(maara):
+        kortti = kortit[i]
+        try:
+            # 1. Hotellin nimi
+            # Trivagossa on usein selkeä testid nimelle
+            nimi = kortti.locator("span[itemprop='name']").inner_text().strip()
+            
+            # 2. Hinta (päivitetty testid!)
+            hinta_raaka = kortti.locator("[data-testid='recommended-price']").first.inner_text()
+            
+            # Siivotaan euro-merkki, tavalliset välilyönnit sekä nuo piilotetut &nbsp; (\xa0) merkit
+            hinta = hinta_raaka.replace("€", "").replace("\xa0", "").replace(" ", "").strip()
+            
+            # 3. Arvostelu (Käytetään span-tagia ja itemprop-attribuuttia)
+            try:
+                arvostelu = kortti.locator("span[itemprop='ratingValue']").first.inner_text().strip()
+            except:
+                arvostelu = "Ei arvosanaa"
+            
+            # 4. UUSI VARAUSLINKKIKOODI (Klikkaa ja Nappaa)
+            try:
+                nappi = kortti.locator("[data-testid='champion-deal']").first
+                    
+                # Otetaan talteen pääsivun alkuperäinen osoite vertailua varten
+                alkuperainen_url = page.url
+                    
+                try:
+                    # Yritetään napata uusi välilehti (popup)
+                    with page.expect_popup(timeout=8000) as popup_info:
+                        nappi.click(force=True)
+                        
+                    uusi_sivu = popup_info.value
+                        
+                    # Odotetaan hetki, jotta Trivagon seurantakoodi ehtii muuttua oikeaksi osoitteeksi
+                    uusi_sivu.wait_for_load_state("domcontentloaded", timeout=5000)
+                    varauslinkki = uusi_sivu.url
+                        
+                    # SUOJAUS: Varmistetaan ehdottomasti, ettemme sulje pääsivua!
+                    if uusi_sivu != page:
+                        uusi_sivu.close()
+                            
+                except Exception as e:
+                    # JOS popupia ei tullut (esim. TimeoutError), tarkistetaan vaihtuiko pääsivun osoite!
+                    if page.url != alkuperainen_url:
+                        # Trivago ohjasi meidät samassa ikkunassa eteenpäin!
+                        varauslinkki = page.url
+                        print("Sivu navigoi samassa ikkunassa. Pakitetaan takaisin...")
+                        page.go_back(wait_until="domcontentloaded")
+                    else:
+                        print("Nappi ei tehnyt mitään tai lataus kesti liian kauan.")
+                        varauslinkki = "Ei saatavilla"
+                            
+            except Exception as e:
+                print(f"Koko linkin haku kaatui: {e}")
+                varauslinkki = "Ei saatavilla"
+            
+            keratty_hotellidata.append({
+                "Sija": i + 1,
+                "Hotelli": nimi,
+                "Hinta": hinta,
+                "Arvostelu": arvostelu,
+                "Linkki": varauslinkki,
+                "Hakupäivä": datetime.now().strftime("%d.%m.%Y")
+            })
+            print(f"Löytyi: {nimi} - {hinta} € (Arvosana: {arvostelu})")
+            
+        except Exception as e:
+            print(f"Virhe hotellin {i+1} keräämisessä: {e}")
+
+    # Tallennetaan olemassa olevaan Exceliin!
+    tallenna_hotellit_olemassaolevaan_exceliin(keratty_hotellidata)

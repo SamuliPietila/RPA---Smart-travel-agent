@@ -278,15 +278,35 @@ def skyscanner_sivuII():
                 # 3. Lentoyhtiö
                 yhtio_elem = kortti.find_element("css selector", "span[class*='LogoImage_label']")
                 yhtio = yhtio_elem.text.strip()
+
+
+                # 4. UUSI: Kellonajat
+                # Etsitään kortin sisältä kaikki elementit, joiden luokka sisältää sanan 'subheading'
+                aika_elementit = kortti.find_elements("css selector", "span[class*='subheading']")
+                
+                # Varmistetaan, että löysimme vähintään 4 kellonaikaa (kuten meno-paluussa pitäisi olla)
+                if len(aika_elementit) >= 4:
+                    meno_lahto = aika_elementit[0].text.strip()
+                    meno_perilla = aika_elementit[1].text.strip()
+                    paluu_lahto = aika_elementit[2].text.strip()
+                    paluu_perilla = aika_elementit[3].text.strip()
+                else:
+                    meno_lahto, meno_perilla, paluu_lahto, paluu_perilla = "-", "-", "-", "-"
                     
+
+
                 keratty_data.append({
                     "Sija": i + 1,
                     "Lentoyhtiö": yhtio,
+                    "Meno lähtee": meno_lahto,
+                    "Meno perillä": meno_perilla,
+                    "Paluu lähtee": paluu_lahto,
+                    "Paluu perillä": paluu_perilla,
                     "Kokonaishinta (4 hlö)": hinta,
                     "Varauslinkki": varauslinkki,
                     "Hakupäivä": datetime.now().strftime("%d.%m.%Y")
                 })
-                print(f"Löytyi: {yhtio} - {hinta}")
+                print(f"Löytyi: {yhtio} | Meno: {meno_lahto}-{meno_perilla} | Paluu: {paluu_lahto}-{paluu_perilla} | {hinta}")
 
             except Exception as e:
                 print(f"Virhe rivin {i+1} keräämisessä: {e}")
