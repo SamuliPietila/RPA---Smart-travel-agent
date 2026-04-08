@@ -6,20 +6,20 @@ from seleniumbase import Driver
 
 from functions import SAP
 from functions import EMV
-from functions import sky
+
 
 @task
 
 def main():
 
-    #EMV.lahtopaikka()
-    #EMV.testaa_skyscanner_kalenteria()
-    #EMV.aseta_henkilömäärä()
-    #EMV.skyscanner_sivuII()
+    EMV.lahtopaikka()
+    EMV.testaa_skyscanner_kalenteria()
+    EMV.aseta_henkilömäärä()
+    EMV.skyscanner_sivuII()
     SAP.matkakohde()
     SAP.testaa_vain_kalenteria()
     SAP.aseta_henkilömäärä()
     SAP.filters()
     SAP.hae_trivago_hotellit()
-    #sky.testaa_skyscanner_kalenteria()
+
     

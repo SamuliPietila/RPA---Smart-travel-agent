@@ -72,7 +72,7 @@ def aseta_henkilömäärä():
     #page.click("button[data-testid='traveller-selector-apply-button']")
     #page.wait_for_timeout(1000)
 
-    page.click("button[class='BpkButton_bpk-button__NGJjZ BpkButton_bpk-button--large__N2Q1M BpkButton_bpk-button--featured__NDdjN _DesktopCTA_1st1v_321']")
+    page.click("button[class='BpkButton_bpk-button__MTFkM BpkButton_bpk-button--large__Y2Q3Y BpkButton_bpk-button--featured__MDA2M _DesktopCTA_111t4_325']")
     page.wait_for_timeout(5000)
 
 
